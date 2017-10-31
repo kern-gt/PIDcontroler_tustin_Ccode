@@ -116,6 +116,8 @@ void InitPid(PIDParameter_t *pid_state_p)
 	(*pid_state_p).velocity_d_buf[1] = 0.0f;
 	(*pid_state_p).velocity_d_buf[1] = 0.0f;
 	(*pid_state_p).velocity_d_buf[1] = 0.0f;
+    (*pid_state_p).velocity_buf[0]   = 0.0f;
+    (*pid_state_p).velocity_buf[1]   = 0.0f;
 
 	(*pid_state_p).pidout[0] = 0.0f;
 	(*pid_state_p).pidout[1] = 0.0f;
@@ -286,9 +288,9 @@ float VResPID(PIDParameter_t *pid_state_p, float setvalue, float feedback_value)
 	(*pid_state_p).error[0] = setvalue - feedback_value;
 
 	//速度比例演算
-	tmp = 2.0f*pgain*((*pid_state_p).error[0] - (*pid_state_p).error[1]);
+	tmp = 2.0f*(*pid_state_p).pgain*((*pid_state_p).error[0] - (*pid_state_p).error[1]);
 	tmp2= ((*pid_state_p).t - 2.0f*(*pid_state_p).tf_p)*(*pid_state_p).velocity_p_buf[1];
-	(*pid_state_p).velocity_p_buf[0] = (tmp -tmp2)/((*pid_state_p).t + 2.0f*(*pid_state_p).tf_p)
+	(*pid_state_p).velocity_p_buf[0] = (tmp -tmp2)/((*pid_state_p).t + 2.0f*(*pid_state_p).tf_p);
 	(*pid_state_p).velocity_p_buf[1] = (*pid_state_p).velocity_p_buf[0];
 
 	//速度積分演算
@@ -297,7 +299,7 @@ float VResPID(PIDParameter_t *pid_state_p, float setvalue, float feedback_value)
 
 	//速度微分演算
 	tmp = (*pid_state_p).error[0] - 2.0f*(*pid_state_p).error[1] + (*pid_state_p).error[2];
-	tmp = 4.0f*pgain*(*pid_state_p).td * tmp / ((*pid_state_p).t*((*pid_state_p).t+2.0f*(*pid_state_p).tf_d));
+	tmp = 4.0f*(*pid_state_p).pgain*(*pid_state_p).td * tmp / ((*pid_state_p).t*((*pid_state_p).t+2.0f*(*pid_state_p).tf_d));
 	tmp = tmp - 2.0f*(*pid_state_p).t*(*pid_state_p).velocity_d_buf[1];
 	(*pid_state_p).velocity_d_buf[0] = tmp - ((*pid_state_p).t-2.0f*(*pid_state_p).tf_d)*(*pid_state_p).velocity_d_buf[2];
 
@@ -309,11 +311,13 @@ float VResPID(PIDParameter_t *pid_state_p, float setvalue, float feedback_value)
 	(*pid_state_p).error[1] = (*pid_state_p).error[0];
 
 	//操作量積算
-	tmp = (*pid_state_p).velocity_p_buf[0] + (*pid_state_p).velocity_i[0] + (*pid_state_p).velocity_d_buf[0];
+	(*pid_state_p).velocity_buf[0] = (*pid_state_p).velocity_p_buf[0] + (*pid_state_p).velocity_i_buf[0] + (*pid_state_p).velocity_d_buf[0];
+    //(*pid_state_p).velocity_buf[0] = (*pid_state_p).velocity_p_buf[0] + (*pid_state_p).velocity_d_buf[0];
 
 	//速度PID操作量を積分
-	(*pid_state_p).pidout[0] = tmp + (*pid_state_p).pidout[1];
-	(*pid_state_p).pidout[1] = (*pid_state_p).pidout[0];
+	(*pid_state_p).pidout[0] = ((*pid_state_p).t*((*pid_state_p).velocity_buf[0] + (*pid_state_p).velocity_buf[1])/2.0f) + (*pid_state_p).pidout[1];
+    (*pid_state_p).velocity_buf[1] = (*pid_state_p).velocity_buf[0];
+    (*pid_state_p).pidout[1] = (*pid_state_p).pidout[0];
 
 	//操作量上下限リミッタ
 	if((*pid_state_p).pidout[0] > (*pid_state_p).outmax)
@@ -327,7 +331,6 @@ float VResPID(PIDParameter_t *pid_state_p, float setvalue, float feedback_value)
 	}
 
 	//操作量変化率リミッタ
-	#if 0
 	if (((*pid_state_p).limited_pidout[0] - (*pid_state_p).limited_pidout[1]) > (*pid_state_p).delta_outmax)
 	{
 		(*pid_state_p).limited_pidout[0] = (*pid_state_p).limited_pidout[1] + (*pid_state_p).delta_outmax;
@@ -335,7 +338,6 @@ float VResPID(PIDParameter_t *pid_state_p, float setvalue, float feedback_value)
 	{
 		(*pid_state_p).limited_pidout[0] = (*pid_state_p).limited_pidout[1] + (*pid_state_p).delta_outmin;
 	}
-	#endif
 
 	(*pid_state_p).limited_pidout[1] = (*pid_state_p).limited_pidout[0];
 

@@ -20,26 +20,26 @@ pid_hoge.c
 #include <stdio.h>
 #include "pid_control_tustin_f.h"
 
-#define STEP		(10*60*2)	//繰り返し数（総サンプリング数）
-#define SETVAL		(50.0)		//目標値
-#define STARTVAL	(0.0)		//１次遅れフィルタの初期値
+#define STEP		(10*1000*3)	//繰り返し数（総サンプリング数）
+#define SETVAL		(0.0f)		//目標値
+#define STARTVAL	(0.0f)		//１次遅れフィルタの初期値
 
-#define PGAIN 		(8.0)		//Pゲイン
-#define TI			(8.0)		//積分時間(0.0禁止)
-#define TD			(2.0)		//微分時間
+#define PGAIN 		(6.0f)		//Pゲイン
+#define TI			(30.0f*1.0f)		//積分時間(0.0禁止)
+#define TD			(7.0f)		//微分時間
 
-#define DT			(0.1)		//制御周期[s]
-#define DFF			(0.1)		//微分係数(0.1~0.125)
+#define DT			(0.01f)		//制御周期[s]
+#define DFF			(0.1f)		//微分係数(0.1~0.125)
 
-#define OUTMAX		(150.0)		//PID操作量最大値
-#define OUTMIN		(0.0)		//PID操作量最小値
-#define DELTA_OUTMAX (50.0)		//PID操作変化量最大値
-#define DELTA_OUTMIN (-50.0)	//PID操作変化量最小値
+#define OUTMAX		(300.0f)	//PID操作量最大値
+#define OUTMIN		(0.0f)		//PID操作量最小値
+#define DELTA_OUTMAX (50.0f)		//PID操作変化量最大値
+#define DELTA_OUTMIN (-50.0f)	//PID操作変化量最小値
 
-#define TAU			(30.0)		//１次遅れフィルタ等価時定数
-#define RK4_GAIN	(1.0)		//１次遅れフィルタゲイン
+#define TAU			(30.0f)		//１次遅れフィルタ等価時定数
+#define RK4_GAIN	(1.0f)		//１次遅れフィルタゲイン
 
-#define PURE_DELAY	(4.0)		//等価むだ時間[s]
+#define PURE_DELAY	(4.0f)		//等価むだ時間[s]
 
 
 
@@ -60,8 +60,9 @@ float LaggedDerivative(float indata, float td, float dff, float dt);
 
 
 
-int main(void) {
+void main_test(void) {
 	int hogea = STEP,i;
+    static int j=1;
 	float hogeb = DT,
 		hogec = STARTVAL,
 		hoged = 0.0,
@@ -79,13 +80,27 @@ int main(void) {
 	InitPid(&pid_samples);
 
 	//PIDパラメータ設定
+	pid_samples.pgain = PGAIN;
+	pid_samples.t     = DT;
+	pid_samples.ti    = TI;
+	pid_samples.td    = TD;
+
+	pid_samples.tf_p  = DFF;
+	pid_samples.tf_d  = DFF;
+
+	pid_samples.outmax= OUTMAX;
+	pid_samples.outmin= OUTMIN;
+	pid_samples.delta_outmax = DELTA_OUTMAX;
+	pid_samples.delta_outmin = DELTA_OUTMIN;
+
+	pid_samples.reset_windup_gain = 1.0f/PGAIN;
 	
 
 	//csv処理(グラフタイトル)
 	printf("Step,");
 	printf("setvalue,");
-	printf("pid_output,");
-	//printf("feedback,");
+	//printf("pid_output,");
+	printf("feedback,");
 	//printf("step-resp,");
 	//printf("lagdiff_velo,");
 	//printf("lagdiff,");
@@ -98,13 +113,18 @@ int main(void) {
 	//制御ループ計算
 	for ( i = 0; i < STEP; ++i)
 	{
-		static float feedback = STARTVAL;
-		float setvalue = SETVAL ,pid_output = 0.0,delay_output = 0.0,time = 0.0;
+		static float feedback = STARTVAL,setvalue = SETVAL;
+		float pid_output = 0.0,delay_output = 0.0,time = 0.0;
 		static float no_ctrl_Rk4 = STARTVAL;
+
+        if(i >= j*(STEP/4)){
+            setvalue = (float)(j*20);
+            j++;
+        }
 
 	/*シミュレーション１　1次遅れ＋むだ時間系のPID制御(ステップ入力)------------------------*/
 		//PID演算
-		pid_output = VResI_PD(&pid_samples,setvalue, feedback);
+		pid_output = VResPID(&pid_samples,setvalue, feedback);
 
 		//むだ時間シミュレーション
 		delay_output = DelayTime(delay_fifo,pid_output,PURE_DELAY,DT);
@@ -122,7 +142,7 @@ int main(void) {
 
 		printf("%f", time);			printf(",");
 		printf("%f", setvalue);		printf(",");
-		printf("%f", pid_output);	printf(",");
+		//printf("%f", pid_output);	printf(",");
 		printf("%f", feedback);		//printf(",");
 		//printf("%f", no_ctrl_Rk4);	printf(",");
 		printf("\n");
@@ -132,7 +152,6 @@ int main(void) {
 		//lagdiff = LaggedDerivative(SETVAL,TD,DFF,DT);
 		//printf("%f", lagdiff);		printf("\n");
 	}
-	return (0);
 }
 
 //不完全微分

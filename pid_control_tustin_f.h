@@ -70,6 +70,7 @@ typedef struct
 	float velocity_p_buf[2];    //
 	float velocity_i_buf[1];
 	float velocity_d_buf[3];
+    float velocity_buf[2];
 	float pidout[2];			//位置PID項出力
 	float limited_pidout[2];	//制限済み位置PID出力
 	float reset_windup_feedback;//リセットワインドアップフィードバック値
@@ -91,7 +92,7 @@ extern void SetPidDt(PIDParameter_t *pid_state_p,			//PID制御構造体
 								float dt);			//制御周期
 
 /*微分係数設定関数(0.1~0.125))*/
-extern void SetPidDff(PIDParameter_t *pid_state _p,			//PID制御構造体
+extern void SetPidDff(PIDParameter_t *pid_state_p,			//PID制御構造体
 								float dff);			//微分係数
 
 /*pidゲイン設定関数*/
